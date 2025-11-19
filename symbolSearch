@@ -1,0 +1,61 @@
+#!/bin/bash
+symbol=$1
+matches=0
+
+# For every file in the current directory
+while IFS= read -r -d $'\0' filename; do
+  functions=""
+  variables=""
+  # Binary searches
+  if file "$filename" | grep -q 'ELF'; then
+    # Search for the symbol in the list of functions using regex
+    function_output=$(gdb -batch -ex "set case-sensitive off" -ex "info functions $symbol" "$filename" 2>/dev/null)
+    functions=$(echo "$function_output" | grep -oP '0x[0-9a-f]+[ \t]+\K\S+$')
+
+    # Search for the symbol in the list of variables using regex
+    variable_output=$(gdb -batch -ex "set case-sensitive off" -ex "info variables $symbol" "$filename" 2>/dev/null)
+    variables=$(echo "$variable_output" | grep -oP '0x[0-9a-f]+[ \t]+\K\S+$')
+  fi
+
+  # Header searches
+  lines=""
+  if [[ $filename == *".h"* || $filename == *".hpp"* ]]; then
+    lines=$(grep -i "$symbol" $filename)
+  fi
+
+  # If there are matches in either
+  if [[ -n "$functions" || -n "$variables" || -n "$lines" ]]; then
+    # Newline between matches
+    if [[ $matches -gt 0 ]]; then
+      echo
+    fi
+
+    echo "Matches in $filename:"
+
+    # Print all function matches
+    if [[ -n "$functions" ]]; then
+      echo -e "\tFunctions:"
+      echo "$functions" | sed 's/^/\t\t/'
+    fi
+
+    # Print all variable matches
+    if [[ -n "$variables" ]]; then
+      echo -e "\tVariables:"
+      echo "$variables" | sed 's/^/\t\t/'
+    fi
+
+    if [[ -n "$lines" ]]; then
+      echo -e "\tLines:"
+      echo "$lines" | sed 's/^/\t\t/'
+    fi
+
+    (( matches++ ))
+  fi
+done < <(find . -type f -print0)
+
+# Finish
+if [[ $matches -eq 0 ]]; then
+  echo "No files with matches found"
+else
+  echo "Found $matches file with matches"
+fi
