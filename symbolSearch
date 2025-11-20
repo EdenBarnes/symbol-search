@@ -10,11 +10,11 @@ while IFS= read -r -d $'\0' filename; do
   if file "$filename" | grep -q 'ELF'; then
     # Search for the symbol in the list of functions using regex
     function_output=$(gdb -batch -ex "set case-sensitive off" -ex "info functions $symbol" "$filename" 2>/dev/null)
-    functions=$(echo "$function_output" | grep -oP '0x[0-9a-f]+[ \t]+\K\S+$')
+    functions=$(echo "$function_output" | grep -oP '0x[0-9a-f]+[ \t]+\K\S+$' | grep -vE '^(_|__)')
 
     # Search for the symbol in the list of variables using regex
     variable_output=$(gdb -batch -ex "set case-sensitive off" -ex "info variables $symbol" "$filename" 2>/dev/null)
-    variables=$(echo "$variable_output" | grep -oP '0x[0-9a-f]+[ \t]+\K\S+$')
+    variables=$(echo "$variable_output" | grep -oP '0x[0-9a-f]+[ \t]+\K\S+$' | grep -vE '^(_|__)')
   fi
 
   # Header searches
